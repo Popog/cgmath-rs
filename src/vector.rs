@@ -102,6 +102,7 @@
 use std::fmt;
 use std::mem;
 use std::num::{Zero, zero, One, one};
+use std::rand::{Rand, Rng};
 
 use angle::{Rad, atan2, acos};
 use approx::ApproxEq;
@@ -114,7 +115,8 @@ use num::{BaseNum, BaseFloat};
 pub trait Vector<S: BaseNum>: Array1<S>
                   + Neg<Self>
                   + Zero
-                  + One {
+                  + One
+                  + Rand {
     /// Add a scalar to this vector, returning a new vector.
     fn add_s(&self, s: S) -> Self;
     /// Subtract a scalar from this vector, returning a new vector.
@@ -336,6 +338,13 @@ macro_rules! vec(
             #[inline]
             fn approx_eq_eps(&self, other: &$Self<S>, epsilon: &S) -> bool {
                 $(self.$field.approx_eq_eps(&other.$field, epsilon))&&+
+            }
+        }
+
+        impl<S: Rand> Rand for $Self<S> {
+            #[inline]
+            fn rand<R: Rng>(rng: &mut R) -> $Self<S> {
+                $Self { $($field: rng.gen::<S>()),+ }
             }
         }
     )

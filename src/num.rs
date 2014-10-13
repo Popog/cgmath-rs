@@ -17,6 +17,7 @@ use approx::{ApproxEq, Epsilon};
 
 use std::cmp;
 use std::fmt;
+use std::rand::Rand;
 
 /// A trait providing a [partial ordering](http://mathworld.wolfram.com/PartialOrder.html).
 pub trait PartialOrd {
@@ -57,7 +58,7 @@ partial_ord_float!(f32)
 partial_ord_float!(f64)
 
 /// Base numeric types with partial ordering
-pub trait BaseNum: Primitive + PartialOrd + fmt::Show {}
+pub trait BaseNum: Primitive + PartialOrd + Rand + fmt::Show {}
 
 impl BaseNum for i8 {}
 impl BaseNum for i16 {}
