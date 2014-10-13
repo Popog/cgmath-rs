@@ -76,7 +76,7 @@ pub use intersect::Intersect;
 pub use obb::{Obb2, Obb3};
 pub use sphere::Sphere;
 
-pub use approx::ApproxEq;
+pub use approx::{ApproxEq, Epsilon};
 pub use num::{PartialOrd, BaseNum, BaseInt, BaseFloat};
 
 // Modules

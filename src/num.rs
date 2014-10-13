@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use approx::ApproxEq;
+use approx::{ApproxEq, Epsilon};
 
 use std::cmp;
 use std::fmt;
@@ -87,7 +87,7 @@ impl BaseInt for u64 {}
 impl BaseInt for uint {}
 
 /// Base floating point types
-pub trait BaseFloat : BaseNum + FloatMath + ApproxEq<Self> + fmt::Float {}
+pub trait BaseFloat : BaseNum + FloatMath + Epsilon + ApproxEq<Self> + fmt::Float {}
 
 impl BaseFloat for f32 {}
 impl BaseFloat for f64 {}

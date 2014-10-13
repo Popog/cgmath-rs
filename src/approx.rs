@@ -15,30 +15,40 @@
 
 use std::num;
 
-pub trait ApproxEq<T: Float> {
-    fn approx_epsilon(_hack: Option<Self>) -> T {
-        num::cast(1.0e-5f64).unwrap()
-    }
-
-    fn approx_eq(&self, other: &Self) -> bool {
-        let eps: T = ApproxEq::approx_epsilon(None::<Self>);
-        self.approx_eq_eps(other, &eps)
-    }
-
-    fn approx_eq_eps(&self, other: &Self, epsilon: &T) -> bool;
+pub trait Epsilon {
+	// FIXME (#5527): This should be an associated constant
+	#[inline]
+	fn epsilon() -> Self;
 }
 
+/// Returns the epsilon value for a given type.
+#[inline(always)] pub fn epsilon<T: Epsilon>() -> T { Epsilon::epsilon() }
 
-macro_rules! approx_float(
-    ($S:ident) => (
-        impl ApproxEq<$S> for $S {
-             #[inline]
-            fn approx_eq_eps(&self, other: &$S, epsilon: &$S) -> bool {
-                 num::abs(*self - *other) < *epsilon
-            }
-        }
-    )
+pub trait ApproxEq<T: Epsilon> {
+	#[inline]
+	fn approx_eq(&self, other: &Self) -> bool {
+		let eps: T = epsilon();
+		self.approx_eq_eps(other, &eps)
+	}
+
+	fn approx_eq_eps(&self, other: &Self, epsilon: &T) -> bool;
+}
+
+macro_rules! approx_float_impl(
+	($t:ty $v:expr) => (
+		impl Epsilon for $t {
+			#[inline]
+			fn epsilon() -> $t { $v }
+		}
+		impl ApproxEq<$t> for $t {
+			 #[inline]
+			fn approx_eq_eps(&self, other: &$t, epsilon: &$t) -> bool {
+				num::abs(*self - *other) < *epsilon
+			}
+		}
+	)
 )
 
-approx_float!(f32)
-approx_float!(f64)
+approx_float_impl!(f32 1.0e-5f32)
+approx_float_impl!(f64 1.0e-5f64)
+
