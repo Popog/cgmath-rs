@@ -25,25 +25,25 @@ pub trait Epsilon {
 #[inline(always)] pub fn epsilon<T: Epsilon>() -> T { Epsilon::epsilon() }
 
 pub trait ApproxEq<T: Epsilon> {
-	#[inline]
+	#[inline(always)]
 	fn approx_eq(&self, other: &Self) -> bool {
-		let eps: T = epsilon();
-		self.approx_eq_eps(other, &eps)
+		self.approx_eq_eps(other, &epsilon())
 	}
 
+	#[inline]
 	fn approx_eq_eps(&self, other: &Self, epsilon: &T) -> bool;
 }
 
 macro_rules! approx_float_impl(
 	($t:ty $v:expr) => (
 		impl Epsilon for $t {
-			#[inline]
+			#[inline(always)]
 			fn epsilon() -> $t { $v }
 		}
 		impl ApproxEq<$t> for $t {
 			 #[inline]
 			fn approx_eq_eps(&self, other: &$t, epsilon: &$t) -> bool {
-				num::abs(*self - *other) < *epsilon
+				num::abs(*self - *other) <= *epsilon
 			}
 		}
 	)

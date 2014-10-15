@@ -105,7 +105,7 @@ use std::num::{Zero, zero, One, one};
 use std::rand::{Rand, Rng};
 
 use angle::{Rad, atan2, acos};
-use approx::ApproxEq;
+use approx::{ApproxEq, epsilon};
 use array::{Array1, FixedArray};
 use num::{BaseNum, BaseFloat};
 
@@ -172,6 +172,70 @@ pub trait Vector<S: BaseNum>: Array1<S>
     /// Vector dot product.
     #[inline]
     fn dot(&self, v: &Self) -> S { self.mul_v(v).comp_add() }
+
+    /// Returns the squared length of the vector. This does not perform an
+    /// expensive square root operation like in the `length` method and can
+    /// therefore be more efficient for comparing the lengths of two vectors.
+    #[inline]
+    fn length2(&self) -> S { self.dot(self) }
+
+    /// with θ = the angle between `self` and `v`, returns `true` if abs(cos(θ)) <= epsilon
+    #[inline]
+    fn is_perpendicular_eps(&self, v: &Self, epsilon: &S) -> bool {
+        let (a, b) = (self, v);
+        // We're looking to return abs(cos(θ)) <= ε
+        // Proof:
+        // ∵             a·b = |a|*|b|*cos(θ)
+        // ∵        |cos(θ)| <= ε
+        //    |a|*|b|*cos(θ) <= |a|*|b|*ε
+        // (|a|*|b|*cos(θ))² <= (|a|*|b|*ε)²
+        // ∴          (a·b)² <= |a|²*|b|²*ε²
+        let a_dot_b = a.dot(b);
+        a_dot_b * a_dot_b <= a.length2() * b.length2() * (*epsilon) * (*epsilon)
+    }
+
+    /// with θ = the angle between `self` and `v`, returns `true` if abs(sin(θ)) <= epsilon
+    #[inline]
+    fn is_parallel_eps(&self, v: &Self, epsilon: &S) -> bool {
+        let (a, b) = (self, v);
+        // We're looking to return abs(sin(θ)) < ε
+        // Proof:
+        // ∵                         a·b = |a|*|b|*cos(θ)
+        // ∵                     sin²(θ) = 1 - cos²(θ)
+        // ∵                    |sin(θ)| <= ε
+        //              |a|*|b|*|sin(θ)| <= |a|*|b|*ε
+        //             (|a|*|b|*sin(θ))² <= (|a|*|b|*ε)²
+        //             |a|²*|b|²*sin²(θ) <= |a|²*|b|²*ε²
+        //       |a|²*|b|²*(1 - cos²(θ)) <= |a|²*|b|²*ε²
+        // |a|²*|b|² - |a|²*|b|²*cos²(θ) <= |a|²*|b|²*ε²
+        // |a|²*|b|² - (|a|*|b|*cos(θ))² <= |a|²*|b|²*ε²
+        //            |a|²*|b|² - (a·b)² <= |a|²*|b|²*ε²
+        //      |a|²*|b|² - |a|²*|b|²*ε² <= (a·b)²
+        // ∴          |a|²*|b|²*(1 - ε²) <= (a·b)²
+        //
+        // Specialized alternatives exist for 2d and 3d, but I'm not sure they're more efficient or
+        // accurate.
+        // 3D Proof:
+        // ∵           |a×b| = |a|*|b|*sin(θ)
+        // ∵        |sin(θ)| <= ε
+        //  |a|*|b|*|sin(θ)| <= |a|*|b|*ε
+        // (|a|*|b|*sin(θ))² <= (|a|*|b|*ε)²
+        // ∴          |a×b|² <= |a|²*|b|²*ε²
+        //a.cross(b).length2() <= (*epsilon) * (*epsilon) * a.length2() * b.length2()
+        //
+        // 2D Proof:
+        // ∵            a⊥·b = |a|*|b|*sin(θ)
+        // ∵        |sin(θ)| <= ε
+        //  |a|*|b|*|sin(θ)| <= |a|*|b|*ε
+        // (|a|*|b|*sin(θ))² <= (|a|*|b|*ε)²
+        // ∴         (a⊥·b)² <= |a|²*|b|²*ε²
+        //let a_perp_dot_b = a.perp_dot(b);
+        //a_perp_dot_b * a_perp_dot_b <= a.length2() * cross.length2() * (*epsilon) * (*epsilon)
+        //
+        let a_dot_b = a.dot(b);
+        let one: S = One::one();
+        a.length2() * b.length2() * (one - (*epsilon) * (*epsilon)) <= a_dot_b * a_dot_b
+    }
 
     /// The minimum component of the vector.
     fn comp_min(&self) -> S;
@@ -456,24 +520,22 @@ impl<S: BaseNum> Vector4<S> {
 /// 2-dimensional and 3-dimensional vectors.
 pub trait EuclideanVector<S: BaseFloat>: Vector<S>
                                        + ApproxEq<S> {
-    /// Returns `true` if the vector is perpendicular (at right angles) to the
-    /// other vector.
-    fn is_perpendicular(&self, other: &Self) -> bool {
-        self.dot(other).approx_eq(&zero())
+    /// with θ = the angle between `self` and `v`, returns `true` if abs(cos(θ)) < epsilon()
+    #[inline]
+    fn is_perpendicular(&self, v: &Self) -> bool {
+        self.is_perpendicular_eps(v, &epsilon())
     }
 
-    /// Returns the squared length of the vector. This does not perform an
-    /// expensive square root operation like in the `length` method and can
-    /// therefore be more efficient for comparing the lengths of two vectors.
+    /// with θ = the angle between `self` and `v`, returns `true` if abs(sin(θ)) < epsilon()
     #[inline]
-    fn length2(&self) -> S {
-        self.dot(self)
+    fn is_parallel(&self, v: &Self) -> bool {
+        self.is_parallel_eps(v, &epsilon())
     }
 
     /// The norm of the vector.
     #[inline]
     fn length(&self) -> S {
-        self.dot(self).sqrt()
+        self.length2().sqrt()
     }
 
     /// The angle between the vector and `other`, in radians.
