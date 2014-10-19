@@ -41,7 +41,7 @@ macro_rules! approx_float_impl(
 			fn epsilon() -> $t { $v }
 		}
 		impl ApproxEq<$t> for $t {
-			 #[inline]
+			#[inline]
 			fn approx_eq_eps(&self, other: &$t, epsilon: &$t) -> bool {
 				num::abs(*self - *other) <= *epsilon
 			}
