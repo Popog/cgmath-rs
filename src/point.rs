@@ -20,6 +20,7 @@
 use std::fmt;
 use std::mem;
 use std::num::{one, zero};
+use std::rand::{Rand, Rng};
 
 use approx::ApproxEq;
 use array::{Array1, FixedArray};
@@ -435,4 +436,18 @@ impl<S: BaseNum> fmt::Show for Point3<S> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "[{}, {}, {}]", self.x, self.y, self.z)
     }
+}
+
+impl<S: Rand+BaseNum> Rand for Point2<S> {
+	#[inline]
+	fn rand<R: Rng>(rng: &mut R) -> Point2<S> {
+		Point2::new(rng.gen::<S>(), rng.gen::<S>())
+	}
+}
+
+impl<S: Rand+BaseNum> Rand for Point3<S> {
+	#[inline]
+	fn rand<R: Rng>(rng: &mut R) -> Point3<S> {
+		Point3::new(rng.gen::<S>(), rng.gen::<S>(), rng.gen::<S>())
+	}
 }
