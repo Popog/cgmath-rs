@@ -13,16 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::num::one;
 use std::fmt;
-use std::num::Zero;
 
 use approx::ApproxEq;
-use intersect::Intersect;
 use num::BaseFloat;
 use point::{Point, Point3};
-use ray::Ray3;
-use vector::{Vector3, Vector4};
-use vector::{Vector, EuclideanVector};
+use vector::{EuclideanVector, Vector, Vector3, Vector4};
 
 
 /// A 3-dimensional plane formed from the equation: `A*x + B*y + C*z - D = 0`.
@@ -78,12 +75,11 @@ impl<S: BaseFloat> Plane<S> {
         let v1 = c.sub_p(&a);
 
         // find the normal vector that is perpendicular to v1 and v2
-        let mut n = v0.cross(&v1);
+        let n = v0.cross(&v1);
 
         if n.approx_eq(&Vector3::zero()) { None }
         else {
-            // compute the normal and the distance to the plane
-            n.normalize_self();
+            // compute the distance to the plane
             let d = -a.dot(&n);
 
             Some(Plane::new(n, d))
@@ -95,38 +91,68 @@ impl<S: BaseFloat> Plane<S> {
     pub fn from_point_normal(p: Point3<S>, n: Vector3<S>) -> Plane<S> {
         Plane { n: n, d: p.dot(&n) }
     }
-}
 
-impl<S: BaseFloat> Intersect<Option<Point3<S>>> for (Plane<S>, Ray3<S>) {
-    fn intersection(&self) -> Option<Point3<S>> {
-        match *self {
-            (ref p, ref r) => {
-                let t = -(p.d + r.origin.dot(&p.n)) / r.direction.dot(&p.n);
-                if t < Zero::zero() { None }
-                else { Some(r.origin.add_v(&r.direction.mul_s(t))) }
-            }
-        }
-    }
-}
+	/// Returns an approximately equal plane, but with `n` having a `length` (or
+	/// `norm`) of `1`.
+	#[inline]
+	pub fn normalize_normal(&self) -> Plane<S> {
+		self.normalize_normal_to(one::<S>())
+	}
 
-impl<S: BaseFloat> Intersect<Option<Ray3<S>>> for (Plane<S>, Plane<S>) {
-    fn intersection(&self) -> Option<Ray3<S>> {
-        fail!("Not yet implemented");
-    }
-}
+	/// Returns an approximately equal plane, but with `n` having a given `length`.
+	#[inline]
+	pub fn normalize_normal_to(&self, length: S) -> Plane<S> {
+		let scale = length / self.n.length();
+		Plane::new(self.n.mul_s(scale), self.d * scale)
+	}
 
-impl<S: BaseFloat> Intersect<Option<Point3<S>>> for (Plane<S>, Plane<S>, Plane<S>) {
-    fn intersection(&self) -> Option<Point3<S>> {
-        fail!("Not yet implemented");
-    }
+	/// Normalizes the plane normal to a length of `1`.
+	#[inline]
+	pub fn normalize_normal_self(&mut self) {
+		self.normalize_normal_self_to(one::<S>())
+	}
+
+	/// Normalizes the plane normal to `length`.
+	#[inline]
+	pub fn normalize_normal_self_to(&mut self, length: S) {
+		let scale = length / self.n.length();
+		self.n.mul_self_s(scale);
+		self.d = self.d * scale;
+	}
+
+	/// Returns an approximately equal plane, but with `d` = `1`.
+	#[inline]
+	pub fn normalize_distance(&self) -> Plane<S> {
+		self.normalize_distance_to(one::<S>())
+	}
+
+	/// Returns an approximately equal plane, but with `d` = `length`.
+	#[inline]
+	pub fn normalize_distance_to(&self, length: S) -> Plane<S> {
+		let scale = self.d / length;
+		Plane::new(self.n.mul_s(scale), length)
+	}
+
+	/// Normalizes the plane normal such that `d` = `1`.
+	#[inline]
+	pub fn normalize_distance_self(&mut self) {
+		self.normalize_distance_self_to(one::<S>())
+	}
+
+	/// Normalizes the plane normal such that `d` = `length`.
+	#[inline]
+	pub fn normalize_distance_self_to(&mut self, length: S) {
+		let scale = self.d / length;
+		self.n.mul_self_s(scale);
+		self.d = length;
+	}
 }
 
 impl<S: BaseFloat + ApproxEq<S>>
 ApproxEq<S> for Plane<S> {
     #[inline]
     fn approx_eq_eps(&self, other: &Plane<S>, epsilon: &S) -> bool {
-        self.n.approx_eq_eps(&other.n, epsilon) &&
-        self.d.approx_eq_eps(&other.d, epsilon)
+        self.n.mul_s(self.d).approx_eq_eps(&other.n.mul_s(other.d), epsilon)
     }
 }
 

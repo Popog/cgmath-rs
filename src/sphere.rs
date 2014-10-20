@@ -15,32 +15,10 @@
 
 //! Bounding sphere
 
-use intersect::Intersect;
-use num::BaseFloat;
-use point::{Point, Point3};
-use ray::Ray3;
-use vector::Vector;
-
-use std::num::zero;
+use point::Point3;
 
 #[deriving(Clone, PartialEq, Encodable, Decodable)]
 pub struct Sphere<S> {
     pub center: Point3<S>,
     pub radius: S,
-}
-
-impl<S: BaseFloat> Intersect<Option<Point3<S>>> for (Sphere<S>, Ray3<S>) {
-    fn intersection(&self) -> Option<Point3<S>> {
-        match *self {
-            (ref s, ref r) => {
-                let l = s.center.sub_p(&r.origin);
-                let tca = l.dot(&r.direction);
-                if tca < zero() { return None; }
-                let d2 = l.dot(&l) - tca*tca;
-                if d2 > s.radius*s.radius { return None; }
-                let thc = (s.radius*s.radius - d2).sqrt();
-                Some(r.origin.add_v(&r.direction.mul_s(tca - thc)))
-            }
-        }
-    }
 }

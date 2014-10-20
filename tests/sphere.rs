@@ -26,8 +26,8 @@ fn test_intersection() {
     let r1 = Ray::new(Point3::new(1f64.cos(), 0f64, 5f64), Vector3::new(0f64, 0f64, -5f64).normalize());
     let r2 = Ray::new(Point3::new(1f64, 0f64, 5f64), Vector3::new(0f64, 0f64, -5f64).normalize());
     let r3 = Ray::new(Point3::new(2f64, 0f64, 5f64), Vector3::new(0f64, 0f64, -5f64).normalize());
-    assert_eq!((sphere,r0).intersection(), Some(Point3::new(0f64, 0f64, 1f64)));
-    assert!((sphere,r1).intersection().unwrap().approx_eq( &Point3::new(1f64.cos(), 0f64, 1f64.sin()) ));
-    assert_eq!((sphere,r2).intersection(), Some(Point3::new(1f64, 0f64, 0f64)));
-    assert_eq!((sphere,r3).intersection(), None);
+    assert_eq!((sphere,r0).intersection_point(), Some(Point3::new(0f64, 0f64, 1f64)));
+    assert!((sphere,r1).intersection_point().unwrap().approx_eq( &Point3::new(1f64.cos(), 0f64, 1f64.sin()) ));
+    assert_eq!((sphere,r2).intersection_point(), Some(Point3::new(1f64, 0f64, 0f64)));
+    assert_eq!((sphere,r3).intersection_point(), None);
 }

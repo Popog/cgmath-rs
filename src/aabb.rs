@@ -22,11 +22,9 @@
 
 use point::{Point, Point2, Point3};
 use vector::{Vector, Vector2, Vector3};
-use ray::{Ray2};
-use intersect::Intersect;
-use num::{BaseNum, BaseFloat};
+use num::{BaseNum};
 use std::fmt;
-use std::num::{zero, one, Float};
+use std::num::{zero, one};
 
 pub trait Aabb<S: BaseNum, V: Vector<S>, P: Point<S, V>> {
     /// Create a new AABB using two points as opposing corners.
@@ -175,45 +173,3 @@ impl<S: BaseNum> fmt::Show for Aabb3<S> {
     }
 }
 
-impl<S: BaseFloat> Intersect<Option<Point2<S>>> for (Ray2<S>, Aabb2<S>) {
-    fn intersection(&self) -> Option<Point2<S>> {
-        match *self {
-            (ref ray, ref aabb) => {
-
-                let mut tmin: S = Float::neg_infinity();
-                let mut tmax: S = Float::infinity();
-
-                if ray.direction.x != zero() {
-                    let tx1 = (aabb.min.x - ray.origin.x) / ray.direction.x;
-                    let tx2 = (aabb.max.x - ray.origin.x) / ray.direction.x;
-                    tmin = tmin.max(tx1.min(tx2));
-                    tmax = tmax.min(tx1.max(tx2));
-                }
-
-                if ray.direction.y != zero() {
-                    let ty1 = (aabb.min.y - ray.origin.y) / ray.direction.y;
-                    let ty2 = (aabb.max.y - ray.origin.y) / ray.direction.y;
-                    tmin = tmin.max(ty1.min(ty2));
-                    tmax = tmax.min(ty1.max(ty2));
-                }
-
-                if tmin < zero() && tmax < zero() {
-                    None
-                }
-                else if tmax >= tmin {
-                    if tmin >= zero() {
-                        Some(Point2::new(ray.origin.x + ray.direction.x * tmin,
-                                         ray.origin.y + ray.direction.y * tmin))
-                    }
-                    else {
-                        Some(Point2::new(ray.origin.x + ray.direction.x * tmax,
-                                         ray.origin.y + ray.direction.y * tmax))
-                    }
-                }
-                else {
-                    None
-                }
-            }
-        }
-    }
-}

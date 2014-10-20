@@ -72,7 +72,7 @@ pub use projection::{Projection, PerspectiveFov, Perspective, Ortho};
 pub use aabb::{Aabb, Aabb2, Aabb3};
 pub use cylinder::Cylinder;
 pub use frustum::{Frustum, FrustumPoints};
-pub use intersect::Intersect;
+pub use intersect::{Intersect, IntersectPoint};
 pub use obb::{Obb2, Obb3};
 pub use sphere::Sphere;
 
