@@ -17,7 +17,12 @@
 
 extern crate cgmath;
 
+use std::num::Float;
+use std::rand::random;
+
 use cgmath::*;
+
+static TEST_ITERATIONS: uint = 1000;
 
 #[test]
 fn test_from_value() {
@@ -89,11 +94,81 @@ fn test_cross() {
     assert_eq!(a, r);
 }
 
+fn test_axis<T: BaseFloat>(matching: bool, a: Matrix3<T>, b: Matrix3<T>) {
+	// Test the axis parallelism
+	assert!(
+		a.x.is_parallel(&b.x) == matching,
+		"assertion failed: {} a.x = {}, b.x = {}",
+		matching, a.x, b.x
+	);
+	assert!(
+		a.y.is_parallel(&b.y) == matching,
+		"assertion failed: {} a.y = {}, b.y = {}",
+		matching, a.y, b.y
+	);
+	assert!(
+		a.z.is_parallel(&b.z) == matching,
+		"assertion failed: {} a.z = {}, b.z = {}",
+		matching, a.z, b.z
+	);
+	
+	// Test the unscaled axis perpendicularity
+	assert!(
+		a.x.is_perpendicular(&b.y) == matching,
+		"assertion failed: {} a.x = {}, b.y = {}",
+		matching, a.x, b.y
+	);
+	assert!(
+		a.x.is_perpendicular(&b.z) == matching,
+		"assertion failed: {} a.x = {}, b.z = {}",
+		matching, a.x, b.z
+	);
+	assert!(
+		a.y.is_perpendicular(&b.z) == matching,
+		"assertion failed: {} a.y = {}, b.z = {}",
+		matching, a.y, b.z
+	);
+}
+
 #[test]
-fn test_is_perpendicular() {
-    assert!(Vector2::new(1.0f64, 0.0f64).is_perpendicular(&Vector2::new(0.0f64, 1.0f64)));
-    assert!(Vector3::new(0.0f64, 1.0f64, 0.0f64).is_perpendicular(&Vector3::new(0.0f64, 0.0f64, 1.0f64)));
-    assert!(Vector4::new(1.0f64, 0.0f64, 0.0f64, 0.0f64).is_perpendicular(&Vector4::new(0.0f64, 0.0f64, 0.0f64, 1.0f64)));
+fn test_is_parallel_perpendicular() {
+	for _ in range(0, TEST_ITERATIONS) {
+		// get some random angles
+		let x = rad(random::<f64>()*Float::pi() - Float::frac_pi_2());
+		let y = rad(random::<f64>()*Float::pi() - Float::frac_pi_2());
+		let z = rad(random::<f64>()*Float::two_pi() - Float::pi());
+		
+		let basis1 = Matrix3::from_euler(x, y, z);
+		let basis2 = basis1 * Matrix3::from_euler(rad(0.1), rad(0.1), rad(0.1));
+		let scale_large = (2.0 + random::<f64>()).powf(100.0);
+		let scale_small = (2.0 + random::<f64>()).powf(-100.0);
+		let scale_random = (2.0 + random::<f64>()).powf((random::<f64>() - 0.5) * 200.0);
+		
+		test_axis(true, basis1, basis1);
+		test_axis(true, basis1.mul_s(scale_large),  basis1.mul_s(scale_large));
+		test_axis(true, basis1.mul_s(scale_small),  basis1.mul_s(scale_small));
+		test_axis(true, basis1.mul_s(scale_random), basis1.mul_s(scale_random));
+		test_axis(true, basis1,                     basis1.mul_s(scale_large));
+		test_axis(true, basis1,                     basis1.mul_s(scale_small));
+		test_axis(true, basis1,                     basis1.mul_s(scale_random));
+		test_axis(true, basis1.mul_s(scale_small),  basis1.mul_s(scale_large));
+		test_axis(true, basis1.mul_s(scale_small),  basis1.mul_s(scale_random));
+		test_axis(true, basis1.mul_s(scale_large),  basis1.mul_s(scale_random));
+		
+		test_axis(false, basis1, basis2);
+		test_axis(false, basis1.mul_s(scale_large),  basis2.mul_s(scale_large));
+		test_axis(false, basis1.mul_s(scale_small),  basis2.mul_s(scale_small));
+		test_axis(false, basis1.mul_s(scale_random), basis2.mul_s(scale_random));
+		test_axis(false, basis1,                     basis2.mul_s(scale_large));
+		test_axis(false, basis1,                     basis2.mul_s(scale_small));
+		test_axis(false, basis1,                     basis2.mul_s(scale_random));
+		test_axis(false, basis1.mul_s(scale_small),  basis2.mul_s(scale_large));
+		test_axis(false, basis1.mul_s(scale_small),  basis2.mul_s(scale_random));
+		test_axis(false, basis1.mul_s(scale_large),  basis2.mul_s(scale_random));
+	}
+	assert!(Vector2::new(1.0f64, 0.0f64).is_perpendicular(&Vector2::new(0.0f64, 1.0f64)));
+	assert!(Vector3::new(0.0f64, 1.0f64, 0.0f64).is_perpendicular(&Vector3::new(0.0f64, 0.0f64, 1.0f64)));
+	assert!(Vector4::new(1.0f64, 0.0f64, 0.0f64, 0.0f64).is_perpendicular(&Vector4::new(0.0f64, 0.0f64, 0.0f64, 1.0f64)));
 }
 
 #[cfg(test)]

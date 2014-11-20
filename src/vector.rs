@@ -105,7 +105,7 @@ use std::num::{Zero, zero, One, one};
 use std::rand::{Rand, Rng};
 
 use angle::{Rad, atan2, acos};
-use approx::{ApproxEq, epsilon};
+use approx::{ApproxEq, Epsilon, epsilon};
 use array::{Array1, FixedArray};
 use num::{BaseNum, BaseFloat};
 
@@ -171,7 +171,7 @@ pub trait Vector<S: BaseNum>: Array1<S>
 
     /// Vector dot product.
     #[inline]
-    fn dot(&self, v: &Self) -> S { self.mul_v(v).comp_add() }
+    fn dot(&self, other: &Self) -> S { self.mul_v(other).comp_add() }
 
     /// Returns the squared length of the vector. This does not perform an
     /// expensive square root operation like in the `length` method and can
@@ -179,10 +179,10 @@ pub trait Vector<S: BaseNum>: Array1<S>
     #[inline]
     fn length2(&self) -> S { self.dot(self) }
 
-    /// with θ = the angle between `self` and `v`, returns `true` if abs(cos(θ)) <= epsilon
+    /// with θ = the angle between `self` and `other`, returns `true` if abs(cos(θ)) <= epsilon
     #[inline]
-    fn is_perpendicular_eps(&self, v: &Self, epsilon: &S) -> bool {
-        let (a, b) = (self, v);
+    fn is_perpendicular_eps(&self, other: &Self, epsilon: &S) -> bool {
+        let (a, b) = (self, other);
         // We're looking to return abs(cos(θ)) <= ε
         // Proof:
         // ∵             a·b = |a|*|b|*cos(θ)
@@ -194,10 +194,10 @@ pub trait Vector<S: BaseNum>: Array1<S>
         a_dot_b * a_dot_b <= a.length2() * b.length2() * (*epsilon) * (*epsilon)
     }
 
-    /// with θ = the angle between `self` and `v`, returns `true` if abs(sin(θ)) <= epsilon
+    /// with θ = the angle between `self` and `other`, returns `true` if abs(sin(θ)) <= epsilon
     #[inline]
-    fn is_parallel_eps(&self, v: &Self, epsilon: &S) -> bool {
-        let (a, b) = (self, v);
+    fn is_parallel_eps(&self, other: &Self, epsilon: &S) -> bool {
+        let (a, b) = (self, other);
         // We're looking to return abs(sin(θ)) < ε
         // Proof:
         // ∵                         a·b = |a|*|b|*cos(θ)
@@ -214,24 +214,7 @@ pub trait Vector<S: BaseNum>: Array1<S>
         // ∴          |a|²*|b|²*(1 - ε²) <= (a·b)²
         //
         // Specialized alternatives exist for 2d and 3d, but I'm not sure they're more efficient or
-        // accurate.
-        // 3D Proof:
-        // ∵           |a×b| = |a|*|b|*sin(θ)
-        // ∵        |sin(θ)| <= ε
-        //  |a|*|b|*|sin(θ)| <= |a|*|b|*ε
-        // (|a|*|b|*sin(θ))² <= (|a|*|b|*ε)²
-        // ∴          |a×b|² <= |a|²*|b|²*ε²
-        //a.cross(b).length2() <= (*epsilon) * (*epsilon) * a.length2() * b.length2()
-        //
-        // 2D Proof:
-        // ∵            a⊥·b = |a|*|b|*sin(θ)
-        // ∵        |sin(θ)| <= ε
-        //  |a|*|b|*|sin(θ)| <= |a|*|b|*ε
-        // (|a|*|b|*sin(θ))² <= (|a|*|b|*ε)²
-        // ∴         (a⊥·b)² <= |a|²*|b|²*ε²
-        //let a_perp_dot_b = a.perp_dot(b);
-        //a_perp_dot_b * a_perp_dot_b <= a.length2() * cross.length2() * (*epsilon) * (*epsilon)
-        //
+        // accurate. Needs some testing.
         let a_dot_b = a.dot(b);
         let one: S = One::one();
         a.length2() * b.length2() * (one - (*epsilon) * (*epsilon)) <= a_dot_b * a_dot_b
@@ -398,10 +381,25 @@ macro_rules! vec(
             #[inline] fn one() -> $Self<S> { $Self::from_value(one()) }
         }
 
-        impl<S: BaseFloat> ApproxEq<S> for $Self<S> {
+        impl<S: BaseNum+Epsilon> ApproxEq<S> for $Self<S> {
             #[inline]
             fn approx_eq_eps(&self, other: &$Self<S>, epsilon: &S) -> bool {
-                $(self.$field.approx_eq_eps(&other.$field, epsilon))&&+
+                // Two vectors are approximately equal if the distance between them
+                // is relatively small in comparison. This scale factor can be either the min
+                // or the max of the two lengths (it doesn't make that much of a difference which),
+                // but it should not be less than 1. A scale factor of less than 1 would prevent
+                // zeros from being approximately equal to each other correctly.
+                // We can not square root both sides to make stuff faster
+                // Proof:
+                // ∵ |a-b|  <= max(|a|,|b|,1) * ε
+                //   |a-b|² <= max(|a|,|b|,1)² * ε²
+                // ∴ |a-b|² <= max(|a|²,|b|²,1) * ε²
+                let scale = self.length2().partial_max(other.length2());
+                if scale > one() {
+                    (*self - *other).length2() <= (*epsilon) * (*epsilon) * scale
+                } else {
+                    (*self - *other).length2() <= (*epsilon) * (*epsilon)
+                }
             }
         }
 
@@ -446,6 +444,21 @@ impl<S: BaseNum> Vector2<S> {
     pub fn extend(&self, z: S)-> Vector3<S> {
         Vector3::new(self.x, self.y, z)
     }
+
+    /// with θ = the angle between `self` and `other`, returns `true` if abs(sin(θ)) <= epsilon
+    #[inline]
+    pub fn is_parallel_eps(&self, other: &Vector2<S>, epsilon: &S) -> bool {
+        let (a, b) = (self, other);
+        // We're looking to return abs(sin(θ)) < ε
+        // Proof:
+        // ∵            a⊥·b = |a|*|b|*sin(θ)
+        // ∵        |sin(θ)| <= ε
+        //  |a|*|b|*|sin(θ)| <= |a|*|b|*ε
+        // (|a|*|b|*sin(θ))² <= (|a|*|b|*ε)²
+        // ∴         (a⊥·b)² <= |a|²*|b|²*ε²
+        let a_perp_dot_b = a.perp_dot(b);
+        a_perp_dot_b * a_perp_dot_b <= a.length2() * b.length2() * (*epsilon) * (*epsilon)
+    }
 }
 
 /// Operations specific to numeric three-dimensional vectors.
@@ -484,6 +497,20 @@ impl<S: BaseNum> Vector3<S> {
     pub fn truncate(&self)-> Vector2<S> {
         Vector2::new(self.x, self.y)
     }
+
+    /// with θ = the angle between `self` and `other`, returns `true` if abs(sin(θ)) <= epsilon
+    #[inline]
+    pub fn is_parallel_eps(&self, other: &Vector3<S>, epsilon: &S) -> bool {
+        let (a, b) = (self, other);
+        // We're looking to return abs(sin(θ)) < ε
+        // Proof:
+        // ∵           |a×b| = |a|*|b|*sin(θ)
+        // ∵        |sin(θ)| <= ε
+        //  |a|*|b|*|sin(θ)| <= |a|*|b|*ε
+        // (|a|*|b|*sin(θ))² <= (|a|*|b|*ε)²
+        // ∴          |a×b|² <= |a|²*|b|²*ε²
+        a.cross(b).length2() <= (*epsilon) * (*epsilon) * a.length2() * b.length2()
+    }
 }
 
 /// Operations specific to numeric four-dimensional vectors.
@@ -520,16 +547,16 @@ impl<S: BaseNum> Vector4<S> {
 /// 2-dimensional and 3-dimensional vectors.
 pub trait EuclideanVector<S: BaseFloat>: Vector<S>
                                        + ApproxEq<S> {
-    /// with θ = the angle between `self` and `v`, returns `true` if abs(cos(θ)) < epsilon()
+    /// with θ = the angle between `self` and `other`, returns `true` if abs(cos(θ)) < epsilon()
     #[inline]
-    fn is_perpendicular(&self, v: &Self) -> bool {
-        self.is_perpendicular_eps(v, &epsilon())
+    fn is_perpendicular(&self, other: &Self) -> bool {
+        self.is_perpendicular_eps(other, &epsilon())
     }
 
-    /// with θ = the angle between `self` and `v`, returns `true` if abs(sin(θ)) < epsilon()
+    /// with θ = the angle between `self` and `other`, returns `true` if abs(sin(θ)) < epsilon()
     #[inline]
-    fn is_parallel(&self, v: &Self) -> bool {
-        self.is_parallel_eps(v, &epsilon())
+    fn is_parallel(&self, other: &Self) -> bool {
+        self.is_parallel_eps(other, &epsilon())
     }
 
     /// The norm of the vector.
@@ -539,7 +566,16 @@ pub trait EuclideanVector<S: BaseFloat>: Vector<S>
     }
 
     /// The angle between the vector and `other`, in radians.
-    fn angle(&self, other: &Self) -> Rad<S>;
+    fn angle(&self, other: &Self) -> Rad<S> {
+        let (a, b) = (self, other);
+        // We're looking to return θ
+        // Proof:
+        // ∵  |a|*|b|*cos(θ) = a·b
+        //            cos(θ) = a·b / (|a|*|b|)
+        //                 θ = acos(a·b / (|a|*|b|))
+        // ∴               θ = acos(a·b * rsqrt(|a|²*|b|²))
+        acos(a.dot(b) * (a.length2() * b.length2()).rsqrt())
+    }
 
     /// Returns a vector with the same direction, but with a `length` (or
     /// `norm`) of `1`.
@@ -551,7 +587,7 @@ pub trait EuclideanVector<S: BaseFloat>: Vector<S>
     /// Returns a vector with the same direction and a given `length`.
     #[inline]
     fn normalize_to(&self, length: S) -> Self {
-        self.mul_s(length / self.length())
+        self.mul_s(length * self.length2().rsqrt())
     }
 
     /// Returns the result of linarly interpolating the length of the vector
@@ -564,15 +600,14 @@ pub trait EuclideanVector<S: BaseFloat>: Vector<S>
     /// Normalises the vector to a length of `1`.
     #[inline]
     fn normalize_self(&mut self) {
-        let rlen = self.length().recip();
-        self.mul_self_s(rlen);
+        self.normalize_self_to(one::<S>())
     }
 
     /// Normalizes the vector to `length`.
     #[inline]
     fn normalize_self_to(&mut self, length: S) {
-        let n = length / self.length();
-        self.mul_self_s(n);
+        let scale = length * self.length2().rsqrt();
+        self.mul_self_s(scale);
     }
 
     /// Linearly interpolates the length of the vector towards the length of
@@ -586,22 +621,36 @@ pub trait EuclideanVector<S: BaseFloat>: Vector<S>
 impl<S: BaseFloat> EuclideanVector<S> for Vector2<S> {
     #[inline]
     fn angle(&self, other: &Vector2<S>) -> Rad<S> {
-        atan2(self.perp_dot(other), self.dot(other))
+        let (a, b) = (self, other);
+        // We're looking to return θ
+        // Proof:
+        // ∵            a⊥·b = |a|*|b|*sin(θ)
+        // ∵             a·b = |a|*|b|*cos(θ)
+        // ∵          tan(θ) = sin(θ) / cos(θ)
+        //            tan(θ) = (|a|*|b|*sin(θ)) / (|a|*|b|*cos(θ))
+        //            tan(θ) = a⊥·b / a·b
+        // ∴               θ = atan2(|a⊥·b|, a·b)
+        atan2(a.perp_dot(b), a.dot(b))
     }
 }
 
 impl<S: BaseFloat> EuclideanVector<S> for Vector3<S> {
     #[inline]
     fn angle(&self, other: &Vector3<S>) -> Rad<S> {
-        atan2(self.cross(other).length(), self.dot(other))
+        let (a, b) = (self, other);
+        // We're looking to return θ
+        // Proof:
+        // ∵           |a×b| = |a|*|b|*sin(θ)
+        // ∵             a·b = |a|*|b|*cos(θ)
+        // ∵          tan(θ) = sin(θ) / cos(θ)
+        //            tan(θ) = (|a|*|b|*sin(θ)) / (|a|*|b|*cos(θ))
+        //            tan(θ) = |a×b| / a·b
+        // ∴               θ = atan2(|a×b|, a·b)
+        atan2(a.cross(b).length(), a.dot(b))
     }
 }
 
 impl<S: BaseFloat> EuclideanVector<S> for Vector4<S> {
-    #[inline]
-    fn angle(&self, other: &Vector4<S>) -> Rad<S> {
-        acos(self.dot(other) / (self.length() * other.length()))
-    }
 }
 
 impl<S: BaseNum> fmt::Show for Vector2<S> {
