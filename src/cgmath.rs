@@ -75,6 +75,8 @@ pub use frustum::{Frustum, FrustumPoints};
 pub use intersect::{Intersect, IntersectPoint};
 pub use obb::{Obb2, Obb3};
 pub use sphere::Sphere;
+pub use parallel::Parallel;
+pub use perpendicular::Perpendicular;
 
 pub use approx::{ApproxEq, Epsilon};
 pub use num::{PartialOrd, BaseNum, BaseInt, BaseFloat};
@@ -96,6 +98,9 @@ mod rotation;
 mod transform;
 
 mod projection;
+
+mod parallel;
+mod perpendicular;
 
 mod aabb;
 mod cylinder;
